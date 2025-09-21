@@ -1,0 +1,11 @@
+---
+# ECS Application Deployment Playbook
+# This playbook deploys the application to ECS using the ecs-deploy role
+
+- name: Deploy ECS Application Service
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - common
+    - ecs-deploy

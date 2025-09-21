@@ -1,0 +1,29 @@
+---
+# Production environment variables
+aws_region: ap-northeast-1
+cluster_name: my-app-cluster
+service_name: my-app-service
+task_family: my-app
+
+# Container configuration
+container_image: "wordpress:latest"
+desired_count: 3
+
+# Database configuration
+db_secret_name: prod-app-secrets
+db_name: appdb
+
+# Resource settings (larger for production)
+task_cpu: "1024"
+task_memory: "2048"
+
+# Additional Terraform outputs (populated after deployment)
+log_group_name: "/ecs/my-app"
+alb_dns_name: "{{ terraform_outputs.alb_dns_name | default('') }}"
+rds_endpoint: "{{ terraform_outputs.rds_endpoint | default('') }}"
+db_secret_arn: "{{ terraform_outputs.db_secret_arn | default('') }}"
+ecs_task_execution_role_arn: "{{ terraform_outputs.ecs_task_execution_role_arn | default('') }}"
+ecs_task_role_arn: "{{ terraform_outputs.ecs_task_role_arn | default('') }}"
+
+# Production specific settings
+require_confirmation: true

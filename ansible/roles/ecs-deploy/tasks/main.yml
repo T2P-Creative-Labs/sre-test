@@ -1,0 +1,158 @@
+---
+- name: Get current task definition
+  community.aws.ecs_taskdefinition_info:
+    task_definition: "{{ task_family }}"
+    region: "{{ aws_region }}"
+  register: current_task_def
+
+- debug:
+    msg: |
+      Current Task Definition Info:
+      {{ current_task_def }}
+
+
+- name: Get RDS endpoint from current task definition
+  set_fact:
+    db_endpoint: >-
+      {{
+        (current_task_def.container_definitions[0].environment | default([]))
+        | selectattr('name', 'equalto', 'WORDPRESS_DB_HOST')
+        | map(attribute='value')
+        | list
+        | first | default('')
+      }}
+  when: 
+    - current_task_def.container_definitions is defined
+
+# - name: Validate DB connection variables
+#   fail:
+#     msg: |
+#       One or more required DB connection variables are missing or empty:
+#       WORDPRESS_DB_HOST={{ db_endpoint }}
+#       WORDPRESS_DB_NAME={{ db_name | default('') }}
+#       WORDPRESS_DB_USER secret ARN={{ secrets_manager_arn | default('') }}:DB_USERNAME
+#       WORDPRESS_DB_PASSWORD secret ARN={{ secrets_manager_arn | default('') }}:DB_PASSWORD
+#   when:
+#     - db_endpoint|length == 0
+#     - db_name|length == 0 or db_name is not defined
+#     - secrets_manager_arn|length == 0 or secrets_manager_arn is not defined
+
+- name: Create new task definition
+  community.aws.ecs_taskdefinition:
+    family: "{{ task_family }}"
+    region: "{{ aws_region }}"
+    network_mode: awsvpc
+    launch_type: FARGATE
+    cpu: "{{ task_cpu }}"
+    memory: "{{ task_memory }}"
+    state: present
+    execution_role_arn: "{{ current_task_def.execution_role_arn }}"
+    task_role_arn: "{{ current_task_def.task_role_arn }}"
+    containers:
+      - name: "{{ container_name }}"
+        image: "{{ container_image }}"
+        essential: true
+        portMappings:
+          - containerPort: "{{ container_port }}"
+            protocol: tcp
+        environment:
+          - name: WORDPRESS_DB_HOST
+            value: "{{ db_endpoint }}"
+          - name: WORDPRESS_DB_NAME
+            value: "{{ db_name }}"
+        secrets:
+          - name: WORDPRESS_DB_USER
+            valueFrom: "{{ secrets_manager_arn }}:DB_USERNAME::"
+          - name: WORDPRESS_DB_PASSWORD
+            valueFrom: "{{ secrets_manager_arn }}:DB_PASSWORD::"
+        logConfiguration:
+          logDriver: awslogs
+          options:
+            awslogs-group: "{{ log_group_name | default('/ecs/wordpress') }}"
+            awslogs-region: "{{ aws_region }}"
+            awslogs-stream-prefix: "ecs"
+  register: new_task_def
+
+- debug:
+    msg: |
+      New Task Definition Info:
+      {{ new_task_def }}
+
+- name: Debug new task definition creation
+  debug:
+    msg: |
+      New Task Definition Created:
+      ARN: {{ new_task_def.taskdefinition.taskDefinitionArn }}
+      Revision: {{ new_task_def.taskdefinition.revision }}
+      Status: {{ new_task_def.taskdefinition.status }}
+      Containers: {{ new_task_def.taskdefinition.containerDefinitions | length }}
+
+- name: Debug service update parameters
+  debug:
+    msg: |
+      Updating ECS Service:
+      Cluster: {{ cluster_name }}
+      Service: {{ service_name }}
+      New Task Definition: {{ new_task_def.taskdefinition.taskDefinitionArn }}
+      Desired Count: {{ desired_count | default(2) }}
+
+- name: Update ECS service with new task definition
+  community.aws.ecs_service:
+    name: "{{ service_name }}"
+    cluster: "{{ cluster_name }}"
+    region: "{{ aws_region }}"
+    task_definition: "{{ new_task_def.taskdefinition.taskDefinitionArn }}"
+    desired_count: "{{ desired_count | default(2) }}"
+    state: present
+    wait: true
+  register: service_update
+
+- name: Display deployment information
+  debug:
+    msg: |
+      ECS Deployment Complete!
+      
+      Cluster: {{ cluster_name }}
+      Service: {{ service_name }}
+      New Task Definition: {{ new_task_def.taskdefinition.taskDefinitionArn }}
+      Image: {{ container_image }}
+      
+      Service Status: {{ service_update.service.status }}
+      Running Tasks: {{ service_update.service.runningCount }}
+      Desired Tasks: {{ service_update.service.desiredCount }}
+
+- name: Wait for service stability
+  community.aws.ecs_service_info:
+    cluster: "{{ cluster_name }}"
+    service: "{{ service_name }}"
+    region: "{{ aws_region }}"
+    details: true
+  register: service_status
+  until: service_status.services[0].deployments | selectattr('status', 'equalto', 'PRIMARY') | list | length == 1
+  retries: 30
+  delay: 10
+
+- name: Debug service deployments status
+  debug:
+    msg: |
+      Service Deployments:
+      {% for deployment in service_status.services[0].deployments %}
+      - Status: {{ deployment.status }}
+        Task Definition: {{ deployment.taskDefinition }}
+        Running Count: {{ deployment.runningCount }}
+        Desired Count: {{ deployment.desiredCount }}
+        Created: {{ deployment.createdAt }}
+      {% endfor %}
+
+- name: Final deployment status
+  debug:
+    msg: |
+      Deployment Successful!
+      
+      All tasks are running the new task definition.
+      Service is stable and ready to serve traffic.
+      
+      Monitor your deployment:
+      - AWS Console: https://console.aws.amazon.com/ecs/
+      - Check tasks: aws ecs list-tasks --cluster {{ cluster_name }}
+      - View logs: aws logs tail /ecs/wordpress --follow

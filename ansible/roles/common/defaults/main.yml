@@ -1,0 +1,21 @@
+---
+# Common defaults for all ECS operations
+aws_region: ap-northeast-1
+cluster_name: my-app-cluster
+service_name: my-app-service
+task_family: my-app
+
+# Common resource settings
+task_cpu: "512"
+task_memory: "1024"
+
+# Database configuration
+db_secret_name: app-secrets
+
+# Container configuration
+container_name: my-app
+container_port: 80
+
+# Deployment configuration
+wait_for_deployment: true
+deployment_timeout: 300

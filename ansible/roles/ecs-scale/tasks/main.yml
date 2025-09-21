@@ -1,0 +1,58 @@
+---
+- name: Get current service information
+  amazon.aws.ecs_service_info:
+    cluster: "{{ cluster_name }}"
+    service: "{{ service_name }}"
+    region: "{{ aws_region }}"
+    details: true
+  register: current_service
+
+- name: Display current service status
+  debug:
+    msg: |
+      Current Service Status:
+      - Running Tasks: {{ current_service.services[0].runningCount }}
+      - Desired Tasks: {{ current_service.services[0].desiredCount }}
+      - Pending Tasks: {{ current_service.services[0].pendingCount }}
+
+- name: Scale ECS service
+  amazon.aws.ecs_service:
+    name: "{{ service_name }}"
+    cluster: "{{ cluster_name }}"
+    region: "{{ aws_region }}"
+    desired_count: "{{ scale_to }}"
+    state: present
+    wait: true
+    wait_timeout: 300
+  register: scaled_service
+
+- name: Display scaling result
+  debug:
+    msg: |
+      Service Scaling Complete!
+      
+      Cluster: {{ cluster_name }}
+      Service: {{ service_name }}
+      New Desired Count: {{ scaled_service.service.desiredCount }}
+      Current Running Count: {{ scaled_service.service.runningCount }}
+      
+      Status: {{ scaled_service.service.status }}
+
+- name: Wait for service to reach desired state
+  amazon.aws.ecs_service_info:
+    cluster: "{{ cluster_name }}"
+    service: "{{ service_name }}"
+    region: "{{ aws_region }}"
+    details: true
+  register: final_status
+  until: final_status.services[0].runningCount == (scale_to | int)
+  retries: 20
+  delay: 15
+
+- name: Final status
+  debug:
+    msg: |
+      Scaling Operation Successful!
+      
+      Final Task Count: {{ final_status.services[0].runningCount }}
+      All tasks are healthy and running.

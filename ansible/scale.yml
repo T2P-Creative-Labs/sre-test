@@ -1,0 +1,11 @@
+---
+# ECS Application Scaling Playbook
+# This playbook scales your ECS service up or down
+
+- name: Scale ECS Application Service
+  hosts: localhost
+  connection: local
+  gather_facts: false
+  roles:
+    - common
+    - ecs-scale

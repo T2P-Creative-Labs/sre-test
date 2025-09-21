@@ -1,0 +1,8 @@
+[local]
+localhost ansible_connection=local
+
+[ecs_environments:children]
+development
+
+[development]
+localhost ansible_connection=local

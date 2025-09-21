@@ -1,0 +1,22 @@
+# Secrets and sensitive files
+scripts/secrets.json
+ansible/inventory.ini
+
+# Terraform files
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log

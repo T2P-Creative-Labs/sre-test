@@ -1,0 +1,26 @@
+---
+# Development environment variables
+aws_region: ap-northeast-1
+cluster_name: wordpress-cluster
+service_name: wordpress-service
+task_family: wordpress
+
+# Container configuration
+# container_image: "wordpress:latest"
+container_image: "docker.io/library/wordpress:latest"
+container_name: wordpress
+container_port: 80
+desired_count: 2
+
+# Database configuration
+db_name: wordpress
+
+# Resource settings (smaller for dev)
+task_cpu: "512"
+task_memory: "1024"
+
+# Additional Terraform outputs (populated after deployment)
+log_group_name: "/ecs/wordpress-dev"
+
+# Secrets Manager ARNs for development
+secrets_manager_arn: "arn:aws:secretsmanager:ap-northeast-1:410917516081:secret:dev-app-secrets-0VES0u"

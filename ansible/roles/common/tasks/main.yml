@@ -1,0 +1,13 @@
+---
+- name: Validate AWS credentials
+  amazon.aws.aws_caller_info:
+    region: "{{ aws_region }}"
+  register: aws_caller_info
+
+- name: Display AWS account information
+  debug:
+    msg: |
+      Connected to AWS as:
+      Account: {{ aws_caller_info.account }}
+      User/Role: {{ aws_caller_info.arn }}
+      Region: {{ aws_region }}

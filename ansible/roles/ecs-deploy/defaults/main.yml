@@ -1,0 +1,5 @@
+---
+# ECS Deploy role defaults
+container_image: "wordpress:latest"
+desired_count: 2
+db_name: appdb
